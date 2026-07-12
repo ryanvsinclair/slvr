@@ -1,0 +1,113 @@
+/*
+  Hero separation styles — use with bindHeroSeparation / useHeroSeparation.
+  Import in your page: import "@/lib/hero-separation/hero-separation.css";
+
+  HTML structure:
+    <div class="hero-stage">
+      <div class="hero-viewport">
+        <div class="hero-grid">
+          <div class="quad tl"></div>
+          <div class="quad tr"></div>
+          <div class="quad bl"></div>
+          <div class="quad br"></div>
+        </div>
+      </div>
+    </div>
+*/
+
+:root {
+  --hero-image: url("/slvr.png");
+}
+
+.hero-stage {
+  height: 300vh;
+  position: relative;
+}
+
+.hero-viewport {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  width: 100%;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding-bottom: 10vh;
+}
+
+.hero-grid {
+  --size: min(74vmin, 700px);
+  --split-y: 54%;
+  width: var(--size);
+  height: var(--size);
+  position: relative;
+}
+
+.quad {
+  position: absolute;
+  overflow: hidden;
+  will-change: transform;
+}
+
+.quad::before {
+  content: "";
+  position: absolute;
+  width: var(--size);
+  height: var(--size);
+  background: var(--hero-image) no-repeat;
+  background-size: 100% 100%;
+}
+
+.quad.tl {
+  top: 0;
+  left: 0;
+  width: 50%;
+  height: var(--split-y);
+}
+
+.quad.tr {
+  top: 0;
+  right: 0;
+  width: 50%;
+  height: var(--split-y);
+}
+
+.quad.bl {
+  bottom: 0;
+  left: 0;
+  width: 50%;
+  height: calc(100% - var(--split-y));
+}
+
+.quad.br {
+  bottom: 0;
+  right: 0;
+  width: 50%;
+  height: calc(100% - var(--split-y));
+}
+
+.quad.tl::before {
+  top: 0;
+  left: 0;
+}
+
+.quad.tr::before {
+  top: 0;
+  right: 0;
+}
+
+.quad.bl::before {
+  bottom: 0;
+  left: 0;
+}
+
+.quad.br::before {
+  bottom: 0;
+  right: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quad {
+    transition: none;
+  }
+}

@@ -1,0 +1,177 @@
+.design-page {
+  min-height: 100vh;
+  background: #0e0e12;
+  color: #ececf0;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+.design-page__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px 24px 0;
+}
+
+.design-page h1 {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+}
+
+.design-page__lede {
+  color: #9b9ba8;
+  line-height: 1.5;
+  max-width: 560px;
+  font-size: 14px;
+}
+
+.design-page__lede code {
+  font-family: "Courier New", monospace;
+  font-size: 12px;
+  color: #d5d5e0;
+}
+
+.design-page__back {
+  color: #c8c8d4;
+  text-decoration: none;
+  font-size: 13px;
+  white-space: nowrap;
+  padding-top: 4px;
+}
+
+.design-page__back:hover {
+  color: #fff;
+}
+
+.design-page__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 0;
+  min-height: calc(100vh - 96px);
+}
+
+@media (max-width: 960px) {
+  .design-page__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .design-panel {
+    max-height: none;
+    border-left: none;
+    border-top: 1px solid #24242c;
+  }
+}
+
+.design-viewport-wrap {
+  position: relative;
+  min-height: 420px;
+}
+
+.design-viewport {
+  width: 100%;
+  height: calc(100vh - 96px);
+  min-height: 420px;
+}
+
+.design-viewport canvas {
+  display: block;
+}
+
+.design-viewport__hint {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  margin: 0;
+  font-size: 12px;
+  color: #8a8a98;
+  pointer-events: none;
+}
+
+.design-panel {
+  border-left: 1px solid #24242c;
+  background: #14141a;
+  overflow: auto;
+  max-height: calc(100vh - 96px);
+  padding: 16px;
+}
+
+.design-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.design-actions button {
+  flex: 1;
+  border: 1px solid #34343e;
+  background: #1c1c24;
+  color: #ececf0;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.design-actions button:hover {
+  background: #262630;
+}
+
+.design-actions button.primary {
+  background: #ececf0;
+  border-color: #ececf0;
+  color: #0e0e12;
+}
+
+.design-actions button.primary:hover {
+  background: #fff;
+}
+
+.design-section {
+  margin-bottom: 20px;
+}
+
+.design-section h2 {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #7a7a88;
+  margin-bottom: 12px;
+}
+
+.design-slider {
+  display: block;
+  margin-bottom: 12px;
+}
+
+.design-slider__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  margin-bottom: 6px;
+  color: #c4c4d0;
+}
+
+.design-slider__value {
+  font-family: "Courier New", monospace;
+  color: #8ec8ff;
+}
+
+.design-slider input[type="range"] {
+  width: 100%;
+  accent-color: #8ec8ff;
+}
+
+.design-export {
+  width: 100%;
+  min-height: 180px;
+  border: 1px solid #34343e;
+  border-radius: 8px;
+  padding: 10px;
+  font: 11px "Courier New", monospace;
+  resize: vertical;
+  background: #0e0e12;
+  color: #b8d4a0;
+}
