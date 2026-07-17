@@ -957,11 +957,20 @@ export function initIpodScene(
   const canProject = (p: Project) =>
     /^https?:/.test(p.url) && !/^https?:\/\/wa\.me\//i.test(p.url);
 
+  /** Locked while projecting so iOS URL-bar resize can't reflow the iframe mid-scroll. */
+  let frozenViewAspect: number | null = null;
+  let lastLayoutW =
+    window.innerWidth > 0 ? window.innerWidth : 1280;
+
   function startProjection() {
     const p = PROJECTS[openIdx];
     if (!canProject(p)) return;
     if (iframe.src !== p.url) iframe.src = p.url;
     projecting = true;
+    const h = Math.max(1, window.innerHeight);
+    const w = Math.max(1, window.innerWidth);
+    frozenViewAspect = w / h;
+    lastLayoutW = w;
     iframeFade = 1;
     iframeFadeTarget = 1;
     pendingIframeUrl = null;
@@ -972,12 +981,15 @@ export function initIpodScene(
 
   function stopProjection() {
     projecting = false;
+    frozenViewAspect = null;
     pendingIframeUrl = null;
     iframeFade = 1;
     iframeFadeTarget = 1;
     hint.innerHTML =
       "spin the wheel &nbsp;·&nbsp; center to select &nbsp;·&nbsp; menu to go back";
     drawScreen();
+    // Re-sync framing now that the iframe is gone
+    requestAnimationFrame(() => onResize());
   }
 
   function move(dir: number) {
@@ -1542,15 +1554,33 @@ export function initIpodScene(
   };
   animate();
 
-  const onResize = () => {
+  const onResize = (e?: Event) => {
     const w = window.innerWidth;
     const h = window.innerHeight;
     // Hidden or collapsing windows report 0x0; keep the last good state.
     if (w <= 0 || h <= 0) return;
-    camera.aspect = w / h;
-    camera.updateProjectionMatrix();
+
     renderer.setSize(w, h);
     cssRenderer.setSize(w, h);
+
+    const orientationEvent = e?.type === "orientationchange";
+    const widthChanged = Math.abs(w - lastLayoutW) > 8;
+    // Height-only changes are almost always mobile browser chrome show/hide.
+    const freezeProjectionLayout =
+      projecting && frozenViewAspect !== null && !orientationEvent && !widthChanged;
+
+    if (freezeProjectionLayout) {
+      camera.aspect = frozenViewAspect;
+      camera.updateProjectionMatrix();
+      return;
+    }
+
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    lastLayoutW = w;
+    if (projecting) {
+      frozenViewAspect = w / h;
+    }
 
     const next = getShotLayout(w, h);
     if (layoutNeedsUpdate(layout, next)) {
