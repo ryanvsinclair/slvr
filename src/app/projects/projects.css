@@ -6,6 +6,13 @@
   overflow: hidden;
 }
 
+/* Keep iOS status / Dynamic Island chrome black behind the room */
+html:has(.projects-page),
+body:has(.projects-page) {
+  background: #000000;
+  color-scheme: dark;
+}
+
 .projects-page--embedded {
   position: absolute;
   inset: 0;
