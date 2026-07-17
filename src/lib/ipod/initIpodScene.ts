@@ -1702,10 +1702,12 @@ export function initIpodScene(
     const orientationEvent = e?.type === "orientationchange";
     const widthChanged = Math.abs(w - lastLayoutW) > 8;
     // Height-only changes are almost always mobile browser chrome show/hide.
-    const freezeProjectionLayout =
-      projecting && frozenViewAspect !== null && !orientationEvent && !widthChanged;
-
-    if (freezeProjectionLayout) {
+    if (
+      projecting &&
+      frozenViewAspect !== null &&
+      !orientationEvent &&
+      !widthChanged
+    ) {
       camera.aspect = frozenViewAspect;
       camera.updateProjectionMatrix();
       return;
