@@ -232,3 +232,9 @@ body:has(.projects-page) {
   opacity: 0;
   pointer-events: none;
 }
+
+@media (max-width: 768px), (hover: none) and (pointer: coarse) {
+  .projects-page .hint {
+    color: #fff;
+  }
+}
