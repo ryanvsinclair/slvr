@@ -7,10 +7,10 @@ export type Project = {
 
 export const PROJECTS: Project[] = [
   {
-    title: "REOM Homes",
-    year: "2026",
-    desc: "Property management site that puts proof and transparency up front.",
-    url: "https://reomhomes.vercel.app/",
+    title: "Fibber Magees",
+    year: "2025",
+    desc: "Pub site with events, menu, and ordering in one place.",
+    url: "https://fibbermagees.vercel.app/",
   },
   {
     title: "Verit",
@@ -25,10 +25,10 @@ export const PROJECTS: Project[] = [
     url: "https://www.babmarrakech.ca/",
   },
   {
-    title: "Fibber Magees",
-    year: "2025",
-    desc: "Pub site with events, menu, and ordering in one place.",
-    url: "https://fibbermagees.vercel.app/",
+    title: "REOM Homes",
+    year: "2026",
+    desc: "Property management site that puts proof and transparency up front.",
+    url: "https://reomhomes.vercel.app/",
   },
   {
     title: "About Us",
