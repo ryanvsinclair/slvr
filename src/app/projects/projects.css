@@ -52,6 +52,44 @@
   border-color: #7a7a82;
 }
 
+.projects-page .proj-nav {
+  position: fixed;
+  bottom: max(20px, env(safe-area-inset-bottom, 0px));
+  z-index: 30;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  font-size: 22px;
+  line-height: 1;
+  color: #cfcfd4;
+  border: 1px solid #3a3a40;
+  border-radius: 50%;
+  background: rgba(10, 10, 12, 0.65);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.projects-page .proj-nav-prev {
+  left: max(16px, env(safe-area-inset-left, 0px));
+}
+
+.projects-page .proj-nav-next {
+  right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+.projects-page .proj-nav:active {
+  color: #fff;
+  border-color: #7a7a82;
+  background: rgba(20, 20, 24, 0.8);
+}
+
 .projects-page .projects-nav {
   position: fixed;
   top: 0;
@@ -111,6 +149,30 @@
 }
 
 .projects-page .leave-room:hover {
+  color: #fff;
+  border-color: #7a7a82;
+}
+
+.projects-page .step-back {
+  position: fixed;
+  top: 24px;
+  right: 32px;
+  z-index: 30;
+  display: none;
+  cursor: pointer;
+  user-select: none;
+  font-size: 11px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: #cfcfd4;
+  border: 1px solid #3a3a40;
+  border-radius: 20px;
+  padding: 10px 18px;
+  background: rgba(10, 10, 12, 0.6);
+  backdrop-filter: blur(6px);
+}
+
+.projects-page .step-back:hover {
   color: #fff;
   border-color: #7a7a82;
 }

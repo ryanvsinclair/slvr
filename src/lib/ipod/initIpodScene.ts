@@ -9,6 +9,7 @@ import { PROJECTS, type Project } from "@/data/projects";
 import { getBluetoothPixels } from "@/lib/ipod/bluetoothIcon";
 import {
   getShotLayout,
+  isMobileViewport,
   layoutNeedsUpdate,
   projAnchorPosition,
   type ShotLayout,
@@ -24,6 +25,9 @@ type SceneRefs = {
   app: HTMLElement;
   css3d: HTMLElement;
   closeProj: HTMLButtonElement;
+  prevProj: HTMLButtonElement;
+  nextProj: HTMLButtonElement;
+  stepBack: HTMLButtonElement;
   hint: HTMLElement;
   loading?: HTMLElement | null;
 };
@@ -133,7 +137,8 @@ export function initIpodScene(
   refs: SceneRefs,
   options: InitIpodSceneOptions = {},
 ): IpodSceneHandle {
-  const { app, css3d, closeProj, hint, loading } = refs;
+  const { app, css3d, closeProj, prevProj, nextProj, stepBack, hint, loading } =
+    refs;
   const transitionMode = options.transition ?? false;
 
   document.body.style.overflow = "hidden";
@@ -377,9 +382,29 @@ export function initIpodScene(
   pglow.position.set(-0.09, 0, 0.243);
 
   projBox.add(pbody, pring, pglass, pglow);
-  projBox.position.copy(projAnchorPosition(layout.lens));
-  projBox.lookAt(layout.screenPos);
-  scene.add(projBox);
+
+  // Float/aim wrapper — animate this the same way as the iPod pivot
+  const projAnchor = new THREE.Group();
+  const projHomePos = new THREE.Vector3();
+  const projHomeQuat = new THREE.Quaternion();
+  const _projOrient = new THREE.Object3D();
+  const _projSpinEuler = new THREE.Euler();
+  const _projSpinQuat = new THREE.Quaternion();
+
+  function syncProjHome() {
+    projHomePos.copy(projAnchorPosition(layout.lens));
+    _projOrient.position.copy(projHomePos);
+    _projOrient.lookAt(layout.screenPos);
+    projHomeQuat.copy(_projOrient.quaternion);
+  }
+
+  syncProjHome();
+  projBox.position.set(0, 0, 0);
+  projBox.quaternion.identity();
+  projAnchor.add(projBox);
+  projAnchor.position.copy(projHomePos);
+  projAnchor.quaternion.copy(projHomeQuat);
+  scene.add(projAnchor);
 
   const beam = new THREE.Group();
   rebuildProjectorBeam(beam, layout.lens, layout.screenPos);
@@ -478,8 +503,7 @@ export function initIpodScene(
 
     rebuildProjectorBeam(beam, layout.lens, layout.screenPos);
 
-    projAnchor.position.copy(projAnchorPosition(layout.lens));
-    projAnchor.lookAt(layout.screenPos);
+    syncProjHome();
   }
 
   let mode: "far" | "transit" | "near" = "far";
@@ -612,15 +636,32 @@ export function initIpodScene(
       css3d.style.pointerEvents = "auto";
       closeProj.style.display = "block";
       closeProj.style.opacity = String(smoothstep((v - 0.82) / 0.18));
+      stepBack.style.display = "none";
+      const showMobileNav = isMobileViewport();
+      const navOp = String(smoothstep((v - 0.82) / 0.18));
+      prevProj.style.display = showMobileNav ? "flex" : "none";
+      nextProj.style.display = showMobileNav ? "flex" : "none";
+      prevProj.style.opacity = navOp;
+      nextProj.style.opacity = navOp;
     } else if (cinVal < 0.01 && !projecting) {
       app.style.pointerEvents = "";
       css3d.style.pointerEvents = "none";
       closeProj.style.display = "none";
       closeProj.style.opacity = "0";
+      prevProj.style.display = "none";
+      nextProj.style.display = "none";
+      prevProj.style.opacity = "0";
+      nextProj.style.opacity = "0";
+      if (mode === "near" && !stepBackPull && !outroActive) {
+        stepBack.style.display = "block";
+      }
     } else {
       app.style.pointerEvents = "none";
       css3d.style.pointerEvents = "none";
       closeProj.style.display = "none";
+      prevProj.style.display = "none";
+      nextProj.style.display = "none";
+      stepBack.style.display = "none";
     }
   }
 
@@ -1031,12 +1072,20 @@ export function initIpodScene(
     t0v: THREE.Vector3;
   } | null = null;
 
+  let stepBackPull: {
+    t0: number;
+    dur: number;
+    p0: THREE.Vector3;
+    tgt0: THREE.Vector3;
+  } | null = null;
+
   function approach() {
+    if (stepBackPull) return;
     transit = {
       t0: performance.now(),
       dur: APPROACH_DUR,
       p0: camera.position.clone(),
-      t0v: FAR.tgt.clone(),
+      t0v: lastLook.clone(),
     };
     mode = "transit";
     ipodLcd = "booting";
@@ -1044,6 +1093,7 @@ export function initIpodScene(
     ipodBootT = 0;
     drawScreen();
     hint.style.opacity = "0";
+    stepBack.style.display = "none";
   }
 
   function arriveNear() {
@@ -1057,6 +1107,28 @@ export function initIpodScene(
     hint.innerHTML =
       "spin the wheel &nbsp;·&nbsp; center to select &nbsp;·&nbsp; menu to go back";
     hint.style.opacity = "1";
+    stepBack.style.display = "block";
+  }
+
+  function startStepBack() {
+    if (outroActive || stepBackPull) return;
+    if (mode !== "near" && mode !== "transit") return;
+    if (projecting) {
+      if (view === "project") {
+        view = "menu";
+        sel = openIdx;
+      }
+      stopProjection();
+    }
+    transit = null;
+    stepBack.style.display = "none";
+    hint.style.opacity = "0";
+    stepBackPull = {
+      t0: performance.now(),
+      dur: OUTRO_PULLBACK_MS,
+      p0: camera.position.clone(),
+      tgt0: lastLook.clone(),
+    };
   }
 
   const easeInOut = (t: number) =>
@@ -1171,12 +1243,27 @@ export function initIpodScene(
   };
 
   const onCloseProj = () => menuPress();
+  const onPrevProj = () => {
+    lastInteract = performance.now();
+    move(-1);
+  };
+  const onNextProj = () => {
+    lastInteract = performance.now();
+    move(+1);
+  };
+  const onStepBack = () => {
+    lastInteract = performance.now();
+    startStepBack();
+  };
 
   renderer.domElement.addEventListener("pointermove", onPointerMove);
   renderer.domElement.addEventListener("pointerdown", onPointerDown);
   window.addEventListener("pointerup", onPointerUp);
   window.addEventListener("keydown", onKeyDown);
   closeProj.addEventListener("click", onCloseProj);
+  prevProj.addEventListener("click", onPrevProj);
+  nextProj.addEventListener("click", onNextProj);
+  stepBack.addEventListener("click", onStepBack);
 
   const clock = new THREE.Clock();
   let cin = 0;
@@ -1213,19 +1300,15 @@ export function initIpodScene(
   const OUTRO_SAFETY_MS =
     OUTRO_PULLBACK_MS + INTRO_DURATION * 1000 + 5000;
 
-  // Scale the projector in place — never animate the black screen frame with it
-  const projAnchor = new THREE.Group();
-  projAnchor.position.copy(projBox.position);
-  projAnchor.quaternion.copy(projBox.quaternion);
-  projBox.position.set(0, 0, 0);
-  projBox.quaternion.set(0, 0, 0, 1);
-  scene.remove(projBox);
-  projAnchor.add(projBox);
-  scene.add(projAnchor);
-
+  // Scale/float the projector with the same intro/outro motion as the iPod
   if (transitionMode) {
     projAnchor.scale.setScalar(0.72);
     projBox.visible = false;
+    projAnchor.position.copy(projHomePos);
+    projAnchor.position.y += INTRO_DROP;
+    _projSpinEuler.set(INTRO_ROT_X, INTRO_ROT_Y, 0.12);
+    _projSpinQuat.setFromEuler(_projSpinEuler);
+    projAnchor.quaternion.copy(_projSpinQuat).multiply(projHomeQuat);
     pivot.scale.setScalar(0.84);
     pivot.rotation.y = INTRO_ROT_Y;
     pivot.rotation.x = INTRO_ROT_X;
@@ -1252,11 +1335,14 @@ export function initIpodScene(
     }
 
     if (transitionMode) {
+      const sharedScale = 0.84 + introE * 0.16;
+      // Projector keeps a slightly deeper start scale so it reads as heavier gear
       projAnchor.scale.setScalar(0.72 + introE * 0.28);
       projBox.visible = introE > 0.28;
-      pivot.scale.setScalar(0.84 + introE * 0.16);
+      pivot.scale.setScalar(sharedScale);
     } else {
       pivot.scale.setScalar(1);
+      projAnchor.scale.setScalar(1);
     }
 
     const screenDown = screenRoll >= SCREEN_DOWN_THRESHOLD;
@@ -1338,6 +1424,10 @@ export function initIpodScene(
     pivot.position.y =
       CENTER_Y + HOVER + CIN_OFF.y * cin + bob + introLift;
 
+    // Projector shares the iPod float in/out path (lift + spin + bob)
+    projAnchor.position.copy(projHomePos);
+    projAnchor.position.y += bob + introLift;
+
     const introAnimating =
       transitionMode && (intro < 1 || outroActive);
     if (introAnimating) {
@@ -1345,10 +1435,22 @@ export function initIpodScene(
       pivot.rotation.y = INTRO_ROT_Y * spin;
       pivot.rotation.x = INTRO_ROT_X * spin;
       pivot.rotation.z = 0.12 * spin;
+      if (spin > 0.001) {
+        _projSpinEuler.set(
+          INTRO_ROT_X * spin,
+          INTRO_ROT_Y * spin,
+          0.12 * spin,
+        );
+        _projSpinQuat.setFromEuler(_projSpinEuler);
+        projAnchor.quaternion.copy(_projSpinQuat).multiply(projHomeQuat);
+      } else {
+        projAnchor.quaternion.copy(projHomeQuat);
+      }
     } else if (panning) {
       pivot.rotation.x += (0 - pivot.rotation.x) * 0.05;
       pivot.rotation.y += (0 - pivot.rotation.y) * 0.05;
       pivot.rotation.z += (0 - pivot.rotation.z) * 0.05;
+      projAnchor.quaternion.copy(projHomeQuat);
     } else {
       pivot.rotation.x += (0 - pivot.rotation.x) * 0.04;
       const idle = performance.now() - lastInteract > 3000;
@@ -1356,6 +1458,8 @@ export function initIpodScene(
         ((idle ? Math.sin(t * 0.35) * 0.3 : 0) - pivot.rotation.y) * 0.02;
       pivot.rotation.z +=
         ((idle ? Math.sin(t * 0.28 + 1.2) * 0.06 : 0) - pivot.rotation.z) * 0.02;
+      // Keep projector aimed at the screen while it shares the bob
+      projAnchor.quaternion.copy(projHomeQuat);
     }
 
     if (outroActive && outroPhase === "pullback" && outroPull) {
@@ -1372,6 +1476,28 @@ export function initIpodScene(
         mode = "far";
         if (transitionMode) outroPhase = "fly";
         else finishOutro();
+      }
+    } else if (stepBackPull) {
+      const k = Math.min(
+        1,
+        (performance.now() - stepBackPull.t0) / stepBackPull.dur,
+      );
+      const ev = easeInOut(k);
+      camera.position.lerpVectors(stepBackPull.p0, FAR.pos, ev);
+      lastLook.lerpVectors(stepBackPull.tgt0, FAR.tgt, ev);
+      camera.lookAt(lastLook);
+      if (k >= 1) {
+        stepBackPull = null;
+        mode = "far";
+        camera.position.copy(FAR.pos);
+        lastLook.copy(FAR.tgt);
+        camera.lookAt(lastLook);
+        ipodLcd = "off";
+        view = "menu";
+        drawScreen();
+        hint.innerHTML = "Click the iPod to explore";
+        hint.style.opacity = "1";
+        stepBack.style.display = "none";
       }
     } else if (outroActive && outroPhase === "fly") {
       mode = "far";
@@ -1447,6 +1573,9 @@ export function initIpodScene(
     window.removeEventListener("resize", onResize);
     window.removeEventListener("orientationchange", onResize);
     closeProj.removeEventListener("click", onCloseProj);
+    prevProj.removeEventListener("click", onPrevProj);
+    nextProj.removeEventListener("click", onNextProj);
+    stepBack.removeEventListener("click", onStepBack);
     document.body.style.overflow = "";
     document.documentElement.style.overflow = "";
     renderer.dispose();
@@ -1471,6 +1600,10 @@ export function initIpodScene(
       }
       hint.style.opacity = "0";
       closeProj.style.display = "none";
+      prevProj.style.display = "none";
+      nextProj.style.display = "none";
+      stepBack.style.display = "none";
+      stepBackPull = null;
       if (projecting) stopProjection();
       outroResolve = resolve;
       outroActive = true;

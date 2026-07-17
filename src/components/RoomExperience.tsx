@@ -39,6 +39,9 @@ const RoomExperience = forwardRef<RoomExperienceHandle, RoomExperienceProps>(
     const appRef = useRef<HTMLDivElement>(null);
     const css3dRef = useRef<HTMLDivElement>(null);
     const closeProjRef = useRef<HTMLButtonElement>(null);
+    const prevProjRef = useRef<HTMLButtonElement>(null);
+    const nextProjRef = useRef<HTMLButtonElement>(null);
+    const stepBackRef = useRef<HTMLButtonElement>(null);
     const hintRef = useRef<HTMLDivElement>(null);
     const sceneRef = useRef<IpodSceneHandle | null>(null);
     const leavingRef = useRef(false);
@@ -67,6 +70,9 @@ const RoomExperience = forwardRef<RoomExperienceHandle, RoomExperienceProps>(
         !appRef.current ||
         !css3dRef.current ||
         !closeProjRef.current ||
+        !prevProjRef.current ||
+        !nextProjRef.current ||
+        !stepBackRef.current ||
         !hintRef.current
       ) {
         return;
@@ -77,6 +83,9 @@ const RoomExperience = forwardRef<RoomExperienceHandle, RoomExperienceProps>(
           app: appRef.current,
           css3d: css3dRef.current,
           closeProj: closeProjRef.current,
+          prevProj: prevProjRef.current,
+          nextProj: nextProjRef.current,
+          stepBack: stepBackRef.current,
           hint: hintRef.current,
         },
         {
@@ -110,8 +119,27 @@ const RoomExperience = forwardRef<RoomExperienceHandle, RoomExperienceProps>(
         <button type="button" className="close-proj" ref={closeProjRef}>
           ✕ Stop projection
         </button>
+        <button
+          type="button"
+          className="proj-nav proj-nav-prev"
+          ref={prevProjRef}
+          aria-label="Previous project"
+        >
+          ←
+        </button>
+        <button
+          type="button"
+          className="proj-nav proj-nav-next"
+          ref={nextProjRef}
+          aria-label="Next project"
+        >
+          →
+        </button>
         <button type="button" className="leave-room" onClick={handleLeave}>
           ← Leave room
+        </button>
+        <button type="button" className="step-back" ref={stepBackRef}>
+          ← Step back
         </button>
         <div className="hint" ref={hintRef}>
           Click the iPod to explore
