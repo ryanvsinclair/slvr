@@ -558,11 +558,16 @@ export function initIpodScene(
   const IPOD_BOOT_FLASH_PEAK = 0.28;
   const IPOD_BOOT_FLASH_OUT = 0.42;
   const IPOD_BOOT_MENU_IN = 0.5;
+  const IPOD_SHUT_MS = 520;
+  const IPOD_SHUT_MENU_OUT = 0.36;
+  const IPOD_SHUT_LINE_END = 0.92;
 
-  type IpodLcdPhase = "off" | "booting" | "on";
+  type IpodLcdPhase = "off" | "booting" | "on" | "shutting";
   let ipodLcd: IpodLcdPhase = "off";
   let ipodBootT = 0;
   let ipodBootStart = 0;
+  let ipodShutT = 0;
+  let ipodShutStart = 0;
   let introGlareT = 0;
 
   const smoothstep = (t: number) => {
@@ -811,6 +816,52 @@ export function initIpodScene(
     screenTex.needsUpdate = true;
   }
 
+  /** Reverse of boot: menu fades, SLVR blip, then CRT-style line collapse to black. */
+  function drawIpodShut(t: number) {
+    if (t < IPOD_SHUT_MENU_OUT) {
+      drawScreenContent(1 - smoothstep(t / IPOD_SHUT_MENU_OUT));
+      return;
+    }
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = "#17171a";
+    ctx.fillRect(0, 0, CW, CH);
+    ctx.translate(INSET, INSET);
+    const IW = CW - 2 * INSET;
+    const IH = CH - 2 * INSET;
+
+    const u = smoothstep(
+      (t - IPOD_SHUT_MENU_OUT) / (1 - IPOD_SHUT_MENU_OUT),
+    );
+    const lineT = Math.min(1, u / IPOD_SHUT_LINE_END);
+    const lineE = 1 - smoothstep(lineT);
+    const lineH = Math.max(0.8, IH * lineE * lineE);
+    const brightness = lineE;
+
+    const g = Math.round(7 + brightness * 208);
+    ctx.fillStyle = `rgb(${Math.max(7, g - 6)}, ${Math.max(9, g)}, ${Math.max(7, g - 18)})`;
+    ctx.fillRect(0, (IH - lineH) / 2, IW, lineH);
+
+    if (u < 0.42) {
+      ctx.save();
+      ctx.globalAlpha = 1 - smoothstep(u / 0.42);
+      ctx.fillStyle = LCD_FG;
+      ctx.font = 'bold 32px "Courier New", monospace';
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("SLVR", IW / 2, IH / 2);
+      ctx.restore();
+    }
+
+    if (u >= IPOD_SHUT_LINE_END) {
+      const tip = smoothstep((u - IPOD_SHUT_LINE_END) / (1 - IPOD_SHUT_LINE_END));
+      ctx.fillStyle = `rgba(210, 220, 200, ${0.35 * (1 - tip)})`;
+      ctx.fillRect(IW / 2 - 1.5, IH / 2 - 1.5, 3, 3);
+    }
+
+    screenTex.needsUpdate = true;
+  }
+
   function drawBluetoothIcon(x: number, y: number) {
     const pixels = getBluetoothPixels();
     ctx.fillStyle = LCD_FG;
@@ -929,26 +980,93 @@ export function initIpodScene(
       drawIpodBoot(ipodBootT);
       return;
     }
+    if (ipodLcd === "shutting") {
+      drawIpodShut(ipodShutT);
+      return;
+    }
     drawScreenContent();
   }
 
   let actx: AudioContext | null = null;
+  function ensureAudio() {
+    actx =
+      actx ||
+      new (window.AudioContext ||
+        (window as typeof window & { webkitAudioContext: typeof AudioContext })
+          .webkitAudioContext)();
+    if (actx.state === "suspended") void actx.resume();
+    return actx;
+  }
+
   function tick() {
     try {
-      actx =
-        actx ||
-        new (window.AudioContext ||
-          (window as typeof window & { webkitAudioContext: typeof AudioContext })
-            .webkitAudioContext)();
-      const o = actx.createOscillator();
-      const gn = actx.createGain();
+      const ctx = ensureAudio();
+      const o = ctx.createOscillator();
+      const gn = ctx.createGain();
       o.frequency.value = 1800;
       gn.gain.value = 0.035;
       o.connect(gn);
-      gn.connect(actx.destination);
+      gn.connect(ctx.destination);
       o.start();
-      gn.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + 0.03);
-      o.stop(actx.currentTime + 0.035);
+      gn.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.03);
+      o.stop(ctx.currentTime + 0.035);
+    } catch {
+      /* audio optional */
+    }
+  }
+
+  /** Apple lock / phone-close style click — synthesized (no copyrighted asset). */
+  function playPhoneCloseSound() {
+    try {
+      const ctx = ensureAudio();
+      const t0 = ctx.currentTime;
+
+      const noiseLen = Math.floor(ctx.sampleRate * 0.045);
+      const noiseBuf = ctx.createBuffer(1, noiseLen, ctx.sampleRate);
+      const noiseData = noiseBuf.getChannelData(0);
+      for (let i = 0; i < noiseLen; i++) {
+        noiseData[i] =
+          (Math.random() * 2 - 1) * Math.exp(-i / (noiseLen * 0.14));
+      }
+      const noise = ctx.createBufferSource();
+      noise.buffer = noiseBuf;
+      const noiseFilter = ctx.createBiquadFilter();
+      noiseFilter.type = "bandpass";
+      noiseFilter.frequency.value = 2400;
+      noiseFilter.Q.value = 1.1;
+      const noiseGain = ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.09, t0);
+      noiseGain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.05);
+      noise.connect(noiseFilter);
+      noiseFilter.connect(noiseGain);
+      noiseGain.connect(ctx.destination);
+      noise.start(t0);
+      noise.stop(t0 + 0.05);
+
+      const tone = (
+        freq: number,
+        start: number,
+        dur: number,
+        vol: number,
+      ) => {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = "sine";
+        o.frequency.setValueAtTime(freq, t0 + start);
+        o.frequency.exponentialRampToValueAtTime(
+          freq * 0.7,
+          t0 + start + dur,
+        );
+        g.gain.setValueAtTime(0.0001, t0 + start);
+        g.gain.exponentialRampToValueAtTime(vol, t0 + start + 0.008);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + start + dur);
+        o.connect(g);
+        g.connect(ctx.destination);
+        o.start(t0 + start);
+        o.stop(t0 + start + dur + 0.02);
+      };
+      tone(1480, 0.008, 0.07, 0.05);
+      tone(1020, 0.052, 0.095, 0.04);
     } catch {
       /* audio optional */
     }
@@ -1135,6 +1253,11 @@ export function initIpodScene(
     transit = null;
     stepBack.style.display = "none";
     hint.style.opacity = "0";
+    playPhoneCloseSound();
+    ipodLcd = "shutting";
+    ipodShutStart = performance.now();
+    ipodShutT = 0;
+    drawScreen();
     stepBackPull = {
       t0: performance.now(),
       dur: OUTRO_PULLBACK_MS,
@@ -1398,6 +1521,16 @@ export function initIpodScene(
         ipodLcd = "on";
         drawScreen();
       }
+    } else if (ipodLcd === "shutting") {
+      ipodShutT = Math.min(
+        1,
+        (performance.now() - ipodShutStart) / IPOD_SHUT_MS,
+      );
+      drawScreen();
+      if (ipodShutT >= 1) {
+        ipodLcd = "off";
+        drawScreen();
+      }
     }
 
     applyProjectionVisuals(cin, screenRoll, projOn);
@@ -1504,7 +1637,10 @@ export function initIpodScene(
         camera.position.copy(FAR.pos);
         lastLook.copy(FAR.tgt);
         camera.lookAt(lastLook);
-        ipodLcd = "off";
+        if (ipodLcd === "shutting" || ipodLcd === "on" || ipodLcd === "booting") {
+          ipodLcd = "off";
+          ipodShutT = 1;
+        }
         view = "menu";
         drawScreen();
         hint.innerHTML = "Click the iPod to explore";
