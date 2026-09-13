@@ -7,6 +7,12 @@ export type Project = {
 
 export const PROJECTS: Project[] = [
   {
+    title: "RX Flooring",
+    year: "2026",
+    desc: "Ottawa flooring site that turns homeowners into booked assessments.",
+    url: "https://rxflooring.ca/",
+  },
+  {
     title: "Fibber Magees",
     year: "2025",
     desc: "Pub site with events, menu, and ordering in one place.",
@@ -23,12 +29,6 @@ export const PROJECTS: Project[] = [
     year: "2026",
     desc: "Restaurant site that drives bookings and sells the menu.",
     url: "https://www.babmarrakech.ca/",
-  },
-  {
-    title: "REOM Homes",
-    year: "2026",
-    desc: "Property management site that puts proof and transparency up front.",
-    url: "https://reomhomes.vercel.app/",
   },
   {
     title: "About Us",
